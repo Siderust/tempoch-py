@@ -10,15 +10,15 @@ import datetime
 import pickle
 
 from tempoch import (
+    InvalidIntervalError,
     JulianDate,
     ModifiedJulianDate,
+    NonFiniteTimeError,
     TimePeriod,
     TimeScale,
-    NonFiniteTimeError,
-    InvalidIntervalError,
     convert_timescale,
-    tai_minus_utc,
     intersect_periods,
+    tai_minus_utc,
 )
 
 
@@ -88,8 +88,14 @@ def demo_arithmetic():
 def demo_scales():
     print("── Time Scale Conversions ──────────────────────────────")
     jd = 2451545.0
-    for scale in [TimeScale.MJD, TimeScale.TDB, TimeScale.TT,
-                  TimeScale.TAI, TimeScale.GPS, TimeScale.UT]:
+    for scale in [
+        TimeScale.MJD,
+        TimeScale.TDB,
+        TimeScale.TT,
+        TimeScale.TAI,
+        TimeScale.GPS,
+        TimeScale.UT,
+    ]:
         val = convert_timescale(jd, TimeScale.JD, scale)
         print(f"  JD → {str(scale):10s}: {val:.6f}")
 
@@ -152,7 +158,9 @@ def demo_pickle():
 
     p = TimePeriod(59000.0, 59001.0)
     p2 = pickle.loads(pickle.dumps(p))
-    print(f"TimePeriod:              [{p.start_mjd}, {p.end_mjd}] → [{p2.start_mjd}, {p2.end_mjd}] ✓")
+    print(
+        f"TimePeriod:              [{p.start_mjd}, {p.end_mjd}] → [{p2.start_mjd}, {p2.end_mjd}] ✓"
+    )
     print()
 
 

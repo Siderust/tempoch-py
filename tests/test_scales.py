@@ -3,23 +3,22 @@
 import pytest
 
 from tempoch import (
+    InvalidIntervalError,
     JulianDate,
     ModifiedJulianDate,
+    NonFiniteTimeError,
     TimePeriod,
     TimeScale,
-    NonFiniteTimeError,
-    InvalidIntervalError,
-    ConversionError,
+    __version__,
     convert_timescale,
     tai_minus_utc,
-    intersect_periods,
-    __version__,
 )
 
 
 class TestModuleExports:
     def test_all_exports_present(self):
         import tempoch
+
         for name in (
             "JulianDate",
             "ModifiedJulianDate",

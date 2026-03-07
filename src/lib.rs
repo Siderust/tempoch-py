@@ -15,8 +15,8 @@ mod scales;
 
 use jd::PyJulianDate;
 use mjd::PyModifiedJulianDate;
-use period::{PyTimePeriod, intersect_periods_py};
-use scales::{PyTimeScale, convert_timescale, tai_minus_utc_py};
+use period::{intersect_periods_py, PyTimePeriod};
+use scales::{convert_timescale, tai_minus_utc_py, PyTimeScale};
 
 /// tempoch: Astronomical Time Primitives for Python
 ///
@@ -47,10 +47,7 @@ fn _tempoch(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         "InvalidIntervalError",
         _py.get_type::<errors::InvalidIntervalError>(),
     )?;
-    m.add(
-        "ConversionError",
-        _py.get_type::<errors::ConversionError>(),
-    )?;
+    m.add("ConversionError", _py.get_type::<errors::ConversionError>())?;
 
     // Free functions
     m.add_function(wrap_pyfunction!(convert_timescale, m)?)?;
