@@ -33,6 +33,7 @@ impl PyJulianDate {
     }
 }
 
+#[allow(clippy::wrong_self_convention)]
 #[pymethods]
 impl PyJulianDate {
     /// Create a new Julian Date from a day number.
@@ -91,11 +92,13 @@ impl PyJulianDate {
         let datetime_mod = py.import("datetime")?;
         let datetime_cls = datetime_mod.getattr("datetime")?;
         let tz = datetime_mod.getattr("timezone")?.getattr("utc")?;
-        datetime_cls
-            .call_method1(
-                "fromtimestamp",
-                (dt.timestamp() as f64 + dt.timestamp_subsec_nanos() as f64 / 1e9, &tz),
-            )
+        datetime_cls.call_method1(
+            "fromtimestamp",
+            (
+                dt.timestamp() as f64 + dt.timestamp_subsec_nanos() as f64 / 1e9,
+                &tz,
+            ),
+        )
     }
 
     /// Create a Julian Date from a UTC datetime string (ISO 8601 / RFC 3339).
@@ -108,9 +111,9 @@ impl PyJulianDate {
     #[staticmethod]
     fn from_utc(utc_str: &str) -> PyResult<Self> {
         use chrono::{DateTime, Utc};
-        let dt: DateTime<Utc> = utc_str
-            .parse::<DateTime<Utc>>()
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid UTC datetime: {e}")))?;
+        let dt: DateTime<Utc> = utc_str.parse::<DateTime<Utc>>().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid UTC datetime: {e}"))
+        })?;
         Ok(Self {
             inner: Time::<JD>::from_utc(dt),
         })
@@ -183,7 +186,11 @@ impl PyJulianDate {
     fn __sub__<'py>(&self, other: &Bound<'py, PyAny>) -> PyResult<Py<PyAny>> {
         let py = other.py();
         if let Ok(other_jd) = other.extract::<PyJulianDate>() {
-            Ok(self.difference(&other_jd).into_pyobject(py)?.into_any().unbind())
+            Ok(self
+                .difference(&other_jd)
+                .into_pyobject(py)?
+                .into_any()
+                .unbind())
         } else if let Ok(days) = other.extract::<f64>() {
             Ok(self.add_days(-days).into_pyobject(py)?.into_any().unbind())
         } else {

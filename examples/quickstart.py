@@ -5,7 +5,7 @@ Shows the core workflow: creating Julian Dates, converting to MJD/UTC,
 arithmetic, and period operations.
 """
 
-from tempoch import JulianDate, ModifiedJulianDate, TimePeriod, TimeScale, convert_timescale
+from tempoch import JulianDate, TimePeriod, TimeScale, convert_timescale
 
 print("=== tempoch-py Quick Start ===\n")
 

@@ -5,14 +5,22 @@
 //! (TT, TDB, TAI, TCG, TCB, GPS, UT, etc.).
 
 use pyo3::prelude::*;
-use tempoch::{Time, JD, JDE, MJD, TDB, TT, TAI, TCG, TCB, GPS, UnixTime, UT};
-
+use tempoch::{Time, UnixTime, GPS, JD, JDE, MJD, TAI, TCB, TCG, TDB, TT, UT};
 
 /// Enumeration of supported astronomical time scales.
 ///
 /// Used with `JulianDate.to_scale()` and `JulianDate.from_scale()` to convert
 /// between different time representations.
-#[pyclass(name = "TimeScale", module = "tempoch", eq, eq_int, hash, frozen, from_py_object)]
+#[pyclass(
+    name = "TimeScale",
+    module = "tempoch",
+    eq,
+    eq_int,
+    hash,
+    frozen,
+    from_py_object
+)]
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PyTimeScale {
     /// Julian Date (identity scale).

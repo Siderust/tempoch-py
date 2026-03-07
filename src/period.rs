@@ -32,6 +32,7 @@ impl PyTimePeriod {
     }
 }
 
+#[allow(clippy::wrong_self_convention)]
 #[pymethods]
 impl PyTimePeriod {
     /// Create a new time period from start and end MJD values.
@@ -53,8 +54,8 @@ impl PyTimePeriod {
     /// Create a time period from two `ModifiedJulianDate` objects.
     #[staticmethod]
     fn from_mjd(start: &PyModifiedJulianDate, end: &PyModifiedJulianDate) -> PyResult<Self> {
-        let inner = Interval::try_new(start.inner, end.inner)
-            .map_err(map_invalid_interval_error)?;
+        let inner =
+            Interval::try_new(start.inner, end.inner).map_err(map_invalid_interval_error)?;
         Ok(Self { inner })
     }
 
@@ -65,8 +66,7 @@ impl PyTimePeriod {
     fn from_jd(start: &PyJulianDate, end: &PyJulianDate) -> PyResult<Self> {
         let start_mjd = start.inner.to::<MJD>();
         let end_mjd = end.inner.to::<MJD>();
-        let inner = Interval::try_new(start_mjd, end_mjd)
-            .map_err(map_invalid_interval_error)?;
+        let inner = Interval::try_new(start_mjd, end_mjd).map_err(map_invalid_interval_error)?;
         Ok(Self { inner })
     }
 
@@ -74,16 +74,15 @@ impl PyTimePeriod {
     #[staticmethod]
     fn from_utc(start_utc: &str, end_utc: &str) -> PyResult<Self> {
         use chrono::{DateTime, Utc};
-        let start_dt: DateTime<Utc> = start_utc
-            .parse::<DateTime<Utc>>()
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid start UTC: {e}")))?;
-        let end_dt: DateTime<Utc> = end_utc
-            .parse::<DateTime<Utc>>()
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid end UTC: {e}")))?;
+        let start_dt: DateTime<Utc> = start_utc.parse::<DateTime<Utc>>().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid start UTC: {e}"))
+        })?;
+        let end_dt: DateTime<Utc> = end_utc.parse::<DateTime<Utc>>().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid end UTC: {e}"))
+        })?;
         let start = Time::<MJD>::from_utc(start_dt);
         let end = Time::<MJD>::from_utc(end_dt);
-        let inner = Interval::try_new(start, end)
-            .map_err(map_invalid_interval_error)?;
+        let inner = Interval::try_new(start, end).map_err(map_invalid_interval_error)?;
         Ok(Self { inner })
     }
 
@@ -133,7 +132,11 @@ impl PyTimePeriod {
     /// Returns:
     ///     tuple[str, str]: (start_utc, end_utc) in ISO 8601 format.
     fn to_utc(&self) -> PyResult<(String, String)> {
-        let start_utc = self.inner.start.to_utc().ok_or_else(utc_conversion_failed)?;
+        let start_utc = self
+            .inner
+            .start
+            .to_utc()
+            .ok_or_else(utc_conversion_failed)?;
         let end_utc = self.inner.end.to_utc().ok_or_else(utc_conversion_failed)?;
         Ok((start_utc.to_rfc3339(), end_utc.to_rfc3339()))
     }
@@ -207,7 +210,10 @@ impl PyTimePeriod {
 /// Returns:
 ///     list[TimePeriod]: intersected periods within the bounds.
 #[pyfunction]
-pub fn intersect_periods_py(periods: Vec<PyTimePeriod>, bounds: &PyTimePeriod) -> Vec<PyTimePeriod> {
+pub fn intersect_periods_py(
+    periods: Vec<PyTimePeriod>,
+    bounds: &PyTimePeriod,
+) -> Vec<PyTimePeriod> {
     let rust_periods: Vec<Period<MJD>> = periods.iter().map(|p| p.inner).collect();
     let bound_period = bounds.inner;
     rust_periods

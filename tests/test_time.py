@@ -1,7 +1,7 @@
 """Tests for tempoch Python bindings — JulianDate and ModifiedJulianDate."""
 
-import math
 import pickle
+
 import pytest
 
 from tempoch import JulianDate, ModifiedJulianDate, NonFiniteTimeError
@@ -68,6 +68,7 @@ class TestJulianDateConversion:
 
     def test_to_datetime(self):
         import datetime
+
         j2000 = JulianDate.j2000()
         dt = j2000.to_datetime()
         assert isinstance(dt, datetime.datetime)
@@ -75,6 +76,7 @@ class TestJulianDateConversion:
 
     def test_from_datetime(self):
         import datetime
+
         dt = datetime.datetime(2000, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
         jd = JulianDate.from_datetime(dt)
         # J2000 is approximately JD 2451545.0
@@ -232,12 +234,14 @@ class TestModifiedJulianDateConversion:
 
     def test_to_datetime(self):
         import datetime
+
         mjd = ModifiedJulianDate(51544.5)
         dt = mjd.to_datetime()
         assert isinstance(dt, datetime.datetime)
 
     def test_from_datetime(self):
         import datetime
+
         dt = datetime.datetime(2020, 6, 15, 12, 0, 0, tzinfo=datetime.timezone.utc)
         mjd = ModifiedJulianDate.from_datetime(dt)
         assert mjd.value > 0

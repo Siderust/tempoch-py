@@ -7,9 +7,24 @@ use pyo3::prelude::*;
 
 // ── Custom exception types ────────────────────────────────────────────────
 
-pyo3::create_exception!(tempoch, NonFiniteTimeError, PyValueError, "Time value must be finite (not NaN or infinity).");
-pyo3::create_exception!(tempoch, InvalidIntervalError, PyValueError, "Interval start must not be after end.");
-pyo3::create_exception!(tempoch, ConversionError, PyValueError, "Time conversion out of representable range.");
+pyo3::create_exception!(
+    tempoch,
+    NonFiniteTimeError,
+    PyValueError,
+    "Time value must be finite (not NaN or infinity)."
+);
+pyo3::create_exception!(
+    tempoch,
+    InvalidIntervalError,
+    PyValueError,
+    "Interval start must not be after end."
+);
+pyo3::create_exception!(
+    tempoch,
+    ConversionError,
+    PyValueError,
+    "Time conversion out of representable range."
+);
 
 // ── Mapping helpers ───────────────────────────────────────────────────────
 

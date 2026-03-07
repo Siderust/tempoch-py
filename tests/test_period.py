@@ -1,13 +1,14 @@
 """Tests for tempoch TimePeriod and period operations."""
 
 import pickle
+
 import pytest
 
 from tempoch import (
+    InvalidIntervalError,
     JulianDate,
     ModifiedJulianDate,
     TimePeriod,
-    InvalidIntervalError,
     intersect_periods,
 )
 

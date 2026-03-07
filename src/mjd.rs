@@ -30,6 +30,7 @@ impl PyModifiedJulianDate {
     }
 }
 
+#[allow(clippy::wrong_self_convention)]
 #[pymethods]
 impl PyModifiedJulianDate {
     /// Create a new Modified Julian Date from a day number.
@@ -82,7 +83,10 @@ impl PyModifiedJulianDate {
         let tz = datetime_mod.getattr("timezone")?.getattr("utc")?;
         datetime_cls.call_method1(
             "fromtimestamp",
-            (dt.timestamp() as f64 + dt.timestamp_subsec_nanos() as f64 / 1e9, &tz),
+            (
+                dt.timestamp() as f64 + dt.timestamp_subsec_nanos() as f64 / 1e9,
+                &tz,
+            ),
         )
     }
 
@@ -93,9 +97,9 @@ impl PyModifiedJulianDate {
     #[staticmethod]
     fn from_utc(utc_str: &str) -> PyResult<Self> {
         use chrono::{DateTime, Utc};
-        let dt: DateTime<Utc> = utc_str
-            .parse::<DateTime<Utc>>()
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid UTC datetime: {e}")))?;
+        let dt: DateTime<Utc> = utc_str.parse::<DateTime<Utc>>().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid UTC datetime: {e}"))
+        })?;
         Ok(Self {
             inner: Time::<MJD>::from_utc(dt),
         })
@@ -138,7 +142,11 @@ impl PyModifiedJulianDate {
     fn __sub__<'py>(&self, other: &Bound<'py, PyAny>) -> PyResult<Py<PyAny>> {
         let py = other.py();
         if let Ok(other_mjd) = other.extract::<PyModifiedJulianDate>() {
-            Ok(self.difference(&other_mjd).into_pyobject(py)?.into_any().unbind())
+            Ok(self
+                .difference(&other_mjd)
+                .into_pyobject(py)?
+                .into_any()
+                .unbind())
         } else if let Ok(days) = other.extract::<f64>() {
             Ok(self.add_days(-days).into_pyobject(py)?.into_any().unbind())
         } else {
