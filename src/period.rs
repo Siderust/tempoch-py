@@ -1,15 +1,16 @@
 //! Python wrappers for `Period<MJD>` (time intervals on MJD scale).
 
 use pyo3::prelude::*;
-use tempoch::{Interval, Period, Time, MJD};
+use tempoch::qtty::unit::{Day, Hour, Second};
+use tempoch::{Interval, ModifiedJulianDate, Period, MJD, TT, UTC};
 
-use crate::errors::{map_invalid_interval_error, utc_conversion_failed};
+use crate::errors::{ensure_finite, map_conversion_error, map_invalid_interval_error};
 use crate::jd::PyJulianDate;
 use crate::mjd::PyModifiedJulianDate;
 
 /// A time period defined by start and end Modified Julian Dates.
 ///
-/// Periods are closed intervals [start, end] that support duration
+/// Periods are half-open intervals [start, end) that support duration
 /// calculation, intersection, and scale conversion.
 ///
 /// Examples:
@@ -22,12 +23,12 @@ use crate::mjd::PyModifiedJulianDate;
 #[pyclass(name = "TimePeriod", module = "tempoch", from_py_object)]
 #[derive(Clone, Copy)]
 pub struct PyTimePeriod {
-    inner: Period<MJD>,
+    inner: Period<TT>,
 }
 
 impl PyTimePeriod {
     /// Create from an inner Rust `Period<MJD>`.
-    pub fn from_inner(inner: Period<MJD>) -> Self {
+    pub fn from_inner(inner: Period<TT>) -> Self {
         Self { inner }
     }
 }
@@ -45,8 +46,10 @@ impl PyTimePeriod {
     ///     InvalidIntervalError: if start > end.
     #[new]
     fn new(start_mjd: f64, end_mjd: f64) -> PyResult<Self> {
-        let start = Time::<MJD>::new(start_mjd);
-        let end = Time::<MJD>::new(end_mjd);
+        ensure_finite(start_mjd)?;
+        ensure_finite(end_mjd)?;
+        let start = ModifiedJulianDate::<TT>::new(start_mjd).to_j2000s();
+        let end = ModifiedJulianDate::<TT>::new(end_mjd).to_j2000s();
         let inner = Interval::try_new(start, end).map_err(map_invalid_interval_error)?;
         Ok(Self { inner })
     }
@@ -54,8 +57,8 @@ impl PyTimePeriod {
     /// Create a time period from two `ModifiedJulianDate` objects.
     #[staticmethod]
     fn from_mjd(start: &PyModifiedJulianDate, end: &PyModifiedJulianDate) -> PyResult<Self> {
-        let inner =
-            Interval::try_new(start.inner, end.inner).map_err(map_invalid_interval_error)?;
+        let inner = Interval::try_new(start.inner.to_j2000s(), end.inner.to_j2000s())
+            .map_err(map_invalid_interval_error)?;
         Ok(Self { inner })
     }
 
@@ -64,8 +67,8 @@ impl PyTimePeriod {
     /// The JD values are converted to MJD internally.
     #[staticmethod]
     fn from_jd(start: &PyJulianDate, end: &PyJulianDate) -> PyResult<Self> {
-        let start_mjd = start.inner.to::<MJD>();
-        let end_mjd = end.inner.to::<MJD>();
+        let start_mjd = start.inner.to_j2000s();
+        let end_mjd = end.inner.to_j2000s();
         let inner = Interval::try_new(start_mjd, end_mjd).map_err(map_invalid_interval_error)?;
         Ok(Self { inner })
     }
@@ -73,15 +76,19 @@ impl PyTimePeriod {
     /// Create a time period from two UTC datetime strings.
     #[staticmethod]
     fn from_utc(start_utc: &str, end_utc: &str) -> PyResult<Self> {
-        use chrono::{DateTime, Utc};
-        let start_dt: DateTime<Utc> = start_utc.parse::<DateTime<Utc>>().map_err(|e| {
+        use chrono::{DateTime, FixedOffset, Utc};
+        let start_dt: DateTime<FixedOffset> = start_utc.parse().map_err(|e| {
             pyo3::exceptions::PyValueError::new_err(format!("Invalid start UTC: {e}"))
         })?;
-        let end_dt: DateTime<Utc> = end_utc.parse::<DateTime<Utc>>().map_err(|e| {
+        let end_dt: DateTime<FixedOffset> = end_utc.parse().map_err(|e| {
             pyo3::exceptions::PyValueError::new_err(format!("Invalid end UTC: {e}"))
         })?;
-        let start = Time::<MJD>::from_utc(start_dt);
-        let end = Time::<MJD>::from_utc(end_dt);
+        let start = tempoch::Time::<UTC>::try_from_chrono(start_dt.with_timezone(&Utc))
+            .map_err(map_conversion_error)?
+            .to::<TT>();
+        let end = tempoch::Time::<UTC>::try_from_chrono(end_dt.with_timezone(&Utc))
+            .map_err(map_conversion_error)?
+            .to::<TT>();
         let inner = Interval::try_new(start, end).map_err(map_invalid_interval_error)?;
         Ok(Self { inner })
     }
@@ -89,42 +96,40 @@ impl PyTimePeriod {
     /// The start of the period as a `ModifiedJulianDate`.
     #[getter]
     fn start(&self) -> PyModifiedJulianDate {
-        PyModifiedJulianDate::from_inner(self.inner.start)
+        PyModifiedJulianDate::from_inner(self.inner.start.to::<MJD>())
     }
 
     /// The end of the period as a `ModifiedJulianDate`.
     #[getter]
     fn end(&self) -> PyModifiedJulianDate {
-        PyModifiedJulianDate::from_inner(self.inner.end)
+        PyModifiedJulianDate::from_inner(self.inner.end.to::<MJD>())
     }
 
     /// The start MJD value (float).
     #[getter]
     fn start_mjd(&self) -> f64 {
-        self.inner.start.value()
+        self.inner.start.to::<MJD>().value()
     }
 
     /// The end MJD value (float).
     #[getter]
     fn end_mjd(&self) -> f64 {
-        self.inner.end.value()
+        self.inner.end.to::<MJD>().value()
     }
 
     /// Duration of the period in days.
     fn duration_days(&self) -> f64 {
-        self.inner.duration().value()
+        (self.inner.end - self.inner.start).to::<Day>().value()
     }
 
     /// Duration of the period in seconds.
     fn duration_seconds(&self) -> f64 {
-        use qtty::Second;
-        self.inner.duration().to::<Second>().value()
+        (self.inner.end - self.inner.start).to::<Second>().value()
     }
 
     /// Duration of the period in hours.
     fn duration_hours(&self) -> f64 {
-        use qtty::Hour;
-        self.inner.duration().to::<Hour>().value()
+        (self.inner.end - self.inner.start).to::<Hour>().value()
     }
 
     /// Convert start/end to UTC datetime strings.
@@ -135,9 +140,15 @@ impl PyTimePeriod {
         let start_utc = self
             .inner
             .start
-            .to_utc()
-            .ok_or_else(utc_conversion_failed)?;
-        let end_utc = self.inner.end.to_utc().ok_or_else(utc_conversion_failed)?;
+            .to::<UTC>()
+            .try_to_chrono()
+            .map_err(map_conversion_error)?;
+        let end_utc = self
+            .inner
+            .end
+            .to::<UTC>()
+            .try_to_chrono()
+            .map_err(map_conversion_error)?;
         Ok((start_utc.to_rfc3339(), end_utc.to_rfc3339()))
     }
 
@@ -153,13 +164,17 @@ impl PyTimePeriod {
 
     /// Check if this period contains a given MJD instant.
     fn contains(&self, mjd: f64) -> bool {
-        let t = Time::<MJD>::new(mjd);
-        t >= self.inner.start && t <= self.inner.end
+        if !mjd.is_finite() {
+            return false;
+        }
+        let t = ModifiedJulianDate::<TT>::new(mjd).to_j2000s();
+        t >= self.inner.start && t < self.inner.end
     }
 
     /// Check if this period contains a `ModifiedJulianDate`.
     fn contains_mjd(&self, mjd: &PyModifiedJulianDate) -> bool {
-        mjd.inner >= self.inner.start && mjd.inner <= self.inner.end
+        let instant = mjd.inner.to_j2000s();
+        instant >= self.inner.start && instant < self.inner.end
     }
 
     fn __eq__(&self, other: &PyTimePeriod) -> bool {
@@ -173,29 +188,45 @@ impl PyTimePeriod {
     fn __repr__(&self) -> String {
         format!(
             "TimePeriod({}, {})",
-            self.inner.start.value(),
-            self.inner.end.value()
+            self.inner.start.to::<MJD>().value(),
+            self.inner.end.to::<MJD>().value()
         )
     }
 
     fn __str__(&self) -> String {
         format!(
             "TimePeriod(MJD {} to {})",
-            self.inner.start.value(),
-            self.inner.end.value()
+            self.inner.start.to::<MJD>().value(),
+            self.inner.end.to::<MJD>().value()
         )
     }
 
     fn __reduce__(&self, py: Python<'_>) -> PyResult<(Py<PyAny>, (f64, f64))> {
         let cls = py.get_type::<Self>().into_any().unbind();
-        Ok((cls, (self.inner.start.value(), self.inner.end.value())))
+        Ok((
+            cls,
+            (
+                self.inner.start.to::<MJD>().value(),
+                self.inner.end.to::<MJD>().value(),
+            ),
+        ))
     }
 
     fn __hash__(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        self.inner.start.value().to_bits().hash(&mut hasher);
-        self.inner.end.value().to_bits().hash(&mut hasher);
+        self.inner
+            .start
+            .to::<MJD>()
+            .value()
+            .to_bits()
+            .hash(&mut hasher);
+        self.inner
+            .end
+            .to::<MJD>()
+            .value()
+            .to_bits()
+            .hash(&mut hasher);
         hasher.finish()
     }
 }
@@ -214,7 +245,7 @@ pub fn intersect_periods_py(
     periods: Vec<PyTimePeriod>,
     bounds: &PyTimePeriod,
 ) -> Vec<PyTimePeriod> {
-    let rust_periods: Vec<Period<MJD>> = periods.iter().map(|p| p.inner).collect();
+    let rust_periods: Vec<Period<TT>> = periods.iter().map(|p| p.inner).collect();
     let bound_period = bounds.inner;
     rust_periods
         .iter()

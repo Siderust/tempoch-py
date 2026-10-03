@@ -11,6 +11,7 @@ Python bindings for [tempoch](https://github.com/Siderust/tempoch) — astronomi
 - **Python exceptions** for errors (no raw FFI/status codes)
 - **Pickle** and **hash** support
 - All computation in Rust (no reimplementation in Python)
+- Reusable PyO3 interop for timezone-aware Python datetimes and `Time<UTC>`
 
 ## Installation
 
@@ -63,6 +64,39 @@ p1 = TimePeriod(59000.0, 59010.0)
 p2 = TimePeriod(59005.0, 59015.0)
 overlap = p1.intersection(p2)           # TimePeriod(59005.0, 59010.0)
 ```
+
+## Rust / PyO3 interoperability
+
+The package also builds an `rlib` named `tempoch_py`, so another PyO3 crate can
+reuse the canonical datetime boundary while depending on `tempoch` directly:
+
+```toml
+[dependencies]
+pyo3 = { version = "0.29", features = ["extension-module"] }
+tempoch = "0.7"
+tempoch-py = { git = "https://github.com/Siderust/tempoch-py.git" }
+```
+
+```rust
+use pyo3::prelude::*;
+use tempoch::Time;
+
+fn roundtrip<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    let instant: Time<tempoch::UTC> = tempoch_py::interop::datetime_to_time(value)?;
+    tempoch_py::interop::time_to_datetime(value.py(), instant)
+}
+```
+
+`datetime_to_time` intentionally rejects naive datetimes. Aware datetimes with
+any valid UTC offset are normalized to UTC without converting through a
+floating-point POSIX timestamp. Context-aware variants are available for users
+that need to supply a specific `tempoch::TimeContext`, and
+`period_to_datetimes` converts both endpoints of a `Period<UTC>`.
+
+The Python `TimeScale` enum retains its historical names. In the 0.7 model,
+`JD`, `MJD`, `UnixTime`, and `GPS` describe formats, while `TT`, `TAI`, `TDB`,
+`TCG`, `TCB`, and `UT` (`UT1`) describe physical scales. `JDE` remains a
+compatibility alias for a TT Julian Date.
 
 ## API Reference
 

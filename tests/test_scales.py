@@ -107,10 +107,16 @@ class TestConvertTimescale:
         assert abs(back - jd) < 1e-6  # TDB correction is ~1.7ms
 
     def test_jd_to_gps(self):
-        # GPS epoch is 1980-01-06 (JD 2444244.5), GPS = TAI − 19s
         jd = 2451545.0
         gps = convert_timescale(jd, TimeScale.JD, TimeScale.GPS)
-        assert gps != jd  # GPS is offset
+        back = convert_timescale(gps, TimeScale.GPS, TimeScale.JD)
+        assert abs(back - jd) < 1e-9
+
+    def test_jd_to_unix_roundtrip(self):
+        jd = 2451545.0
+        unix_seconds = convert_timescale(jd, TimeScale.JD, TimeScale.UnixTime)
+        back = convert_timescale(unix_seconds, TimeScale.UnixTime, TimeScale.JD)
+        assert abs(back - jd) < 1e-9
 
     def test_jd_to_ut(self):
         # UT involves ΔT correction

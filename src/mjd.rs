@@ -2,9 +2,11 @@
 
 use pyo3::prelude::*;
 use pyo3::Py;
-use tempoch::{ModifiedJulianDate, Time, JD, MJD};
+use tempoch::qtty::Day;
+use tempoch::{ModifiedJulianDate, JD, TT, UTC};
 
-use crate::errors::{map_non_finite_error, utc_conversion_failed};
+use crate::errors::{ensure_finite, map_conversion_error};
+use crate::interop;
 use crate::jd::PyJulianDate;
 
 /// A Modified Julian Date — JD minus 2,400,000.5.
@@ -20,12 +22,12 @@ use crate::jd::PyJulianDate;
 #[pyclass(name = "ModifiedJulianDate", module = "tempoch", from_py_object)]
 #[derive(Clone, Copy)]
 pub struct PyModifiedJulianDate {
-    pub(crate) inner: ModifiedJulianDate,
+    pub(crate) inner: ModifiedJulianDate<TT>,
 }
 
 impl PyModifiedJulianDate {
     /// Create from an inner Rust `ModifiedJulianDate`.
-    pub fn from_inner(inner: ModifiedJulianDate) -> Self {
+    pub fn from_inner(inner: ModifiedJulianDate<TT>) -> Self {
         Self { inner }
     }
 }
@@ -42,8 +44,10 @@ impl PyModifiedJulianDate {
     ///     NonFiniteTimeError: if the value is NaN or infinite.
     #[new]
     fn new(value: f64) -> PyResult<Self> {
-        let inner = Time::<MJD>::try_new(value).map_err(map_non_finite_error)?;
-        Ok(Self { inner })
+        ensure_finite(value)?;
+        Ok(Self {
+            inner: ModifiedJulianDate::<TT>::new(value),
+        })
     }
 
     /// The raw MJD day-number value.
@@ -65,7 +69,11 @@ impl PyModifiedJulianDate {
     /// Raises:
     ///     ConversionError: if the value is outside chrono's representable range.
     fn to_utc(&self) -> PyResult<String> {
-        let dt = self.inner.to_utc().ok_or_else(utc_conversion_failed)?;
+        let dt = self
+            .inner
+            .to::<UTC>()
+            .try_to_chrono()
+            .map_err(map_conversion_error)?;
         Ok(dt.to_rfc3339())
     }
 
@@ -77,17 +85,7 @@ impl PyModifiedJulianDate {
     /// Raises:
     ///     ConversionError: if the value is outside the representable range.
     fn to_datetime<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let dt = self.inner.to_utc().ok_or_else(utc_conversion_failed)?;
-        let datetime_mod = py.import("datetime")?;
-        let datetime_cls = datetime_mod.getattr("datetime")?;
-        let tz = datetime_mod.getattr("timezone")?.getattr("utc")?;
-        datetime_cls.call_method1(
-            "fromtimestamp",
-            (
-                dt.timestamp() as f64 + dt.timestamp_subsec_nanos() as f64 / 1e9,
-                &tz,
-            ),
-        )
+        interop::time_to_datetime(py, self.inner.to::<UTC>().to_j2000s())
     }
 
     /// Create a Modified Julian Date from a UTC datetime string.
@@ -96,33 +94,30 @@ impl PyModifiedJulianDate {
     ///     utc_str: UTC datetime string (e.g. "2000-01-01T12:00:00Z").
     #[staticmethod]
     fn from_utc(utc_str: &str) -> PyResult<Self> {
-        use chrono::{DateTime, Utc};
-        let dt: DateTime<Utc> = utc_str.parse::<DateTime<Utc>>().map_err(|e| {
+        use chrono::{DateTime, FixedOffset, Utc};
+        let dt: DateTime<FixedOffset> = utc_str.parse().map_err(|e| {
             pyo3::exceptions::PyValueError::new_err(format!("Invalid UTC datetime: {e}"))
         })?;
+        let utc = tempoch::Time::<UTC>::try_from_chrono(dt.with_timezone(&Utc))
+            .map_err(map_conversion_error)?;
         Ok(Self {
-            inner: Time::<MJD>::from_utc(dt),
+            inner: utc.to::<TT>().to::<tempoch::MJD>(),
         })
     }
 
     /// Create a Modified Julian Date from a Python `datetime.datetime` object.
     #[staticmethod]
     fn from_datetime(dt: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let timestamp: f64 = dt.call_method0("timestamp")?.extract()?;
-        let chrono_dt = chrono::DateTime::<chrono::Utc>::from_timestamp(
-            timestamp.floor() as i64,
-            ((timestamp.fract()) * 1e9) as u32,
-        )
-        .ok_or_else(utc_conversion_failed)?;
+        let utc = interop::datetime_to_time(dt)?;
         Ok(Self {
-            inner: Time::<MJD>::from_utc(chrono_dt),
+            inner: utc.to::<TT>().to::<tempoch::MJD>(),
         })
     }
 
     /// Add days to this Modified Julian Date.
     fn add_days(&self, days: f64) -> Self {
         Self {
-            inner: self.inner + qtty::Days::new(days),
+            inner: self.inner + Day::new(days),
         }
     }
 

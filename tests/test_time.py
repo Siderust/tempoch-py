@@ -82,6 +82,24 @@ class TestJulianDateConversion:
         # J2000 is approximately JD 2451545.0
         assert abs(jd.value - 2451545.0) < 0.01  # within ~15 minutes (ΔT is ~64s)
 
+    def test_from_datetime_normalizes_non_utc_offset(self):
+        import datetime
+
+        offset = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+        local = datetime.datetime(2024, 6, 21, 17, 30, 0, 123456, tzinfo=offset)
+        expected = datetime.datetime(2024, 6, 21, 12, 0, 0, 123456, tzinfo=datetime.timezone.utc)
+
+        result = JulianDate.from_datetime(local).to_datetime()
+
+        assert abs(result - expected) < datetime.timedelta(microseconds=50)
+        assert result.utcoffset() == datetime.timedelta(0)
+
+    def test_from_datetime_rejects_naive_datetime(self):
+        import datetime
+
+        with pytest.raises(ValueError, match="naive"):
+            JulianDate.from_datetime(datetime.datetime(2024, 6, 21, 12, 0))
+
 
 class TestJulianDateArithmetic:
     def test_add_days(self):
@@ -244,7 +262,7 @@ class TestModifiedJulianDateConversion:
 
         dt = datetime.datetime(2020, 6, 15, 12, 0, 0, tzinfo=datetime.timezone.utc)
         mjd = ModifiedJulianDate.from_datetime(dt)
-        assert mjd.value > 0
+        assert abs(mjd.value - 59015.50080074074) < 1e-9
 
 
 class TestModifiedJulianDateArithmetic:

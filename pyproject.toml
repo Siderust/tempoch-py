@@ -29,12 +29,13 @@ classifiers = [
 keywords = ["astronomy", "time", "julian-date", "ephemeris", "python"]
 
 [project.urls]
-Repository = "https://github.com/Siderust/tempoch"
+Repository = "https://github.com/Siderust/tempoch-py"
 Documentation = "https://docs.rs/tempoch"
 
 [tool.maturin]
 python-source = "python"
 module-name = "tempoch._tempoch"
+features = ["extension-module"]
 
 [tool.pytest.ini_options]
 addopts = ["-ra", "--strict-config", "--strict-markers"]

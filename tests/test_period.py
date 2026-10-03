@@ -117,6 +117,7 @@ class TestTimePeriodContains:
         p = TimePeriod(59000.0, 59002.0)
         assert p.contains(59001.0)
         assert not p.contains(58999.0)
+        assert not p.contains(59002.0)  # half-open interval
         assert not p.contains(59003.0)
 
     def test_contains_mjd_object(self):

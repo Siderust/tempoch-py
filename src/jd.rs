@@ -2,9 +2,11 @@
 
 use pyo3::prelude::*;
 use pyo3::Py;
-use tempoch::{JulianDate, Time, JD, MJD};
+use tempoch::qtty::{unit::JulianYear, Day};
+use tempoch::{JulianDate, MJD, TT, UTC};
 
-use crate::errors::{map_non_finite_error, utc_conversion_failed};
+use crate::errors::{ensure_finite, map_conversion_error};
+use crate::interop;
 use crate::mjd::PyModifiedJulianDate;
 
 /// A Julian Date — continuous day count since the Julian Period epoch.
@@ -23,12 +25,12 @@ use crate::mjd::PyModifiedJulianDate;
 #[pyclass(name = "JulianDate", module = "tempoch", from_py_object)]
 #[derive(Clone, Copy)]
 pub struct PyJulianDate {
-    pub(crate) inner: JulianDate,
+    pub(crate) inner: JulianDate<TT>,
 }
 
 impl PyJulianDate {
     /// Create from an inner Rust `JulianDate`.
-    pub fn from_inner(inner: JulianDate) -> Self {
+    pub fn from_inner(inner: JulianDate<TT>) -> Self {
         Self { inner }
     }
 }
@@ -45,15 +47,17 @@ impl PyJulianDate {
     ///     NonFiniteTimeError: if the value is NaN or infinite.
     #[new]
     fn new(value: f64) -> PyResult<Self> {
-        let inner = Time::<JD>::try_new(value).map_err(map_non_finite_error)?;
-        Ok(Self { inner })
+        ensure_finite(value)?;
+        Ok(Self {
+            inner: JulianDate::<TT>::new(value),
+        })
     }
 
     /// The J2000.0 epoch: JD 2451545.0 (2000-01-01T12:00:00 TT).
     #[staticmethod]
     fn j2000() -> Self {
         Self {
-            inner: JulianDate::J2000,
+            inner: JulianDate::<TT>::JD_EPOCH_J2000_0,
         }
     }
 
@@ -76,7 +80,11 @@ impl PyJulianDate {
     /// Raises:
     ///     ConversionError: if the value is outside chrono's representable range.
     fn to_utc(&self) -> PyResult<String> {
-        let dt = self.inner.to_utc().ok_or_else(utc_conversion_failed)?;
+        let dt = self
+            .inner
+            .to::<UTC>()
+            .try_to_chrono()
+            .map_err(map_conversion_error)?;
         Ok(dt.to_rfc3339())
     }
 
@@ -88,17 +96,7 @@ impl PyJulianDate {
     /// Raises:
     ///     ConversionError: if the value is outside the representable range.
     fn to_datetime<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let dt = self.inner.to_utc().ok_or_else(utc_conversion_failed)?;
-        let datetime_mod = py.import("datetime")?;
-        let datetime_cls = datetime_mod.getattr("datetime")?;
-        let tz = datetime_mod.getattr("timezone")?.getattr("utc")?;
-        datetime_cls.call_method1(
-            "fromtimestamp",
-            (
-                dt.timestamp() as f64 + dt.timestamp_subsec_nanos() as f64 / 1e9,
-                &tz,
-            ),
-        )
+        interop::time_to_datetime(py, self.inner.to::<UTC>().to_j2000s())
     }
 
     /// Create a Julian Date from a UTC datetime string (ISO 8601 / RFC 3339).
@@ -110,12 +108,14 @@ impl PyJulianDate {
     ///     JulianDate: corresponding Julian Date.
     #[staticmethod]
     fn from_utc(utc_str: &str) -> PyResult<Self> {
-        use chrono::{DateTime, Utc};
-        let dt: DateTime<Utc> = utc_str.parse::<DateTime<Utc>>().map_err(|e| {
+        use chrono::{DateTime, FixedOffset, Utc};
+        let dt: DateTime<FixedOffset> = utc_str.parse().map_err(|e| {
             pyo3::exceptions::PyValueError::new_err(format!("Invalid UTC datetime: {e}"))
         })?;
+        let utc = tempoch::Time::<UTC>::try_from_chrono(dt.with_timezone(&Utc))
+            .map_err(map_conversion_error)?;
         Ok(Self {
-            inner: Time::<JD>::from_utc(dt),
+            inner: utc.to::<TT>().to::<tempoch::JD>(),
         })
     }
 
@@ -125,30 +125,27 @@ impl PyJulianDate {
     ///     dt: Python datetime object (must have timezone info).
     #[staticmethod]
     fn from_datetime(dt: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let timestamp: f64 = dt.call_method0("timestamp")?.extract()?;
-        let chrono_dt = chrono::DateTime::<chrono::Utc>::from_timestamp(
-            timestamp.floor() as i64,
-            ((timestamp.fract()) * 1e9) as u32,
-        )
-        .ok_or_else(utc_conversion_failed)?;
+        let utc = interop::datetime_to_time(dt)?;
         Ok(Self {
-            inner: Time::<JD>::from_utc(chrono_dt),
+            inner: utc.to::<TT>().to::<tempoch::JD>(),
         })
     }
 
     /// Julian centuries since J2000.0.
     fn julian_centuries(&self) -> f64 {
-        self.inner.julian_centuries().value()
+        self.inner.julian_centuries()
     }
 
     /// Julian years since J2000.0.
     fn julian_years(&self) -> f64 {
-        self.inner.julian_years().value()
+        (self.inner - JulianDate::<TT>::JD_EPOCH_J2000_0)
+            .to::<JulianYear>()
+            .value()
     }
 
     /// Julian millennia since J2000.0.
     fn julian_millennia(&self) -> f64 {
-        self.inner.julian_millennias().value()
+        self.inner.julian_centuries() / 10.0
     }
 
     /// Add days to this Julian Date.
@@ -160,7 +157,7 @@ impl PyJulianDate {
     ///     JulianDate: a new Julian Date offset by the given days.
     fn add_days(&self, days: f64) -> Self {
         Self {
-            inner: self.inner + qtty::Days::new(days),
+            inner: self.inner + Day::new(days),
         }
     }
 

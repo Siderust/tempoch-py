@@ -4,19 +4,22 @@ version = "0.1.0"
 edition = "2021"
 description = "Python bindings for tempoch astronomical time primitives"
 license = "AGPL-3.0"
-repository = "https://github.com/Siderust/tempoch"
+repository = "https://github.com/Siderust/tempoch-py"
 authors = ["VPRamon <vallespuigramon@gmail.com>"]
 
 [lib]
-name = "tempoch"  # Python import name
-crate-type = ["cdylib"]
+name = "tempoch_py"
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+extension-module = ["pyo3/extension-module"]
 
 [dependencies]
-tempoch = { path = "tempoch/tempoch", version = "0.3.0" }
-qtty = "0.4.0"
-pyo3 = { version = "0.28.2", features = ["extension-module"] }
+tempoch = "0.7.0"
+pyo3 = { version = "0.29.2", features = ["chrono"] }
 chrono = "0.4.44"
 
 [dev-dependencies]
-pyo3 = { version = "0.28.2", features = ["auto-initialize"] }
+pyo3 = { version = "0.29.2", features = ["auto-initialize", "chrono"] }
 approx = "0.5"

@@ -8,6 +8,7 @@
 use pyo3::prelude::*;
 
 mod errors;
+pub mod interop;
 mod jd;
 mod mjd;
 mod period;
