@@ -24,7 +24,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -36,7 +35,9 @@ jobs:
       - name: Install formatter
         run: python -m pip install --upgrade pip ruff
       - name: Check Rust formatting
-        run: cargo fmt --check
+        run: |
+          cargo fmt --check
+          cargo fmt --manifest-path tests/fixtures/downstream-extension/Cargo.toml --check
       - name: Check Python formatting
         run: python -m ruff format --check python tests examples
 
@@ -46,7 +47,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -59,7 +59,9 @@ jobs:
       - name: Install linters
         run: python -m pip install --upgrade pip ruff
       - name: Run clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: |
+          cargo clippy --all-targets -- -D warnings
+          cargo clippy --manifest-path tests/fixtures/downstream-extension/Cargo.toml -- -D warnings
       - name: Run ruff
         run: python -m ruff check python tests examples
 
@@ -69,10 +71,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Run Rust tests
         run: cargo test --all-targets
 
@@ -86,7 +90,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -113,7 +116,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -149,3 +151,25 @@ jobs:
             coverage.xml
             htmlcov
           retention-days: 7
+
+  downstream-test:
+    name: Downstream PyO3 Consumption
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install packages
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+          python -m pip install .
+          python -m pip install ./tests/fixtures/downstream-extension
+      - name: Exercise downstream extension
+        run: python -m pytest tests/test_downstream_fixture.py -v

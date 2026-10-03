@@ -28,9 +28,13 @@ pyo3::create_exception!(
 
 // ── Mapping helpers ───────────────────────────────────────────────────────
 
-/// Map a Rust `NonFiniteTimeError` to a Python `NonFiniteTimeError`.
-pub fn map_non_finite_error(e: tempoch::NonFiniteTimeError) -> PyErr {
-    NonFiniteTimeError::new_err(e.to_string())
+/// Reject a non-finite scalar before passing it to tempoch.
+pub fn ensure_finite(value: f64) -> PyResult<()> {
+    if value.is_finite() {
+        Ok(())
+    } else {
+        Err(NonFiniteTimeError::new_err("time value must be finite"))
+    }
 }
 
 /// Map a Rust `InvalidIntervalError` to a Python `InvalidIntervalError`.
@@ -39,12 +43,6 @@ pub fn map_invalid_interval_error(e: tempoch::InvalidIntervalError) -> PyErr {
 }
 
 /// Map a Rust `ConversionError` to a Python `ConversionError`.
-#[allow(dead_code)]
 pub fn map_conversion_error(e: tempoch::ConversionError) -> PyErr {
     ConversionError::new_err(e.to_string())
-}
-
-/// Create an error for UTC conversion failure.
-pub fn utc_conversion_failed() -> PyErr {
-    ConversionError::new_err("UTC conversion failed: time value out of representable range")
 }

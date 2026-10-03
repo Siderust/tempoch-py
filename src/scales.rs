@@ -5,7 +5,13 @@
 //! (TT, TDB, TAI, TCG, TCB, GPS, UT, etc.).
 
 use pyo3::prelude::*;
-use tempoch::{Time, UnixTime, GPS, JD, JDE, MJD, TAI, TCB, TCG, TDB, TT, UT};
+use tempoch::qtty::{unit::Second, Second as Seconds};
+use tempoch::{
+    JulianDate, ModifiedJulianDate, Time, TimeContext, Unix, GPS, JD, MJD, TAI, TCB, TCG, TDB, TT,
+    UNIX_EPOCH_JD_DAY, UT1, UTC,
+};
+
+use crate::errors::{ensure_finite, map_conversion_error};
 
 /// Enumeration of supported astronomical time scales.
 ///
@@ -25,7 +31,7 @@ use tempoch::{Time, UnixTime, GPS, JD, JDE, MJD, TAI, TCB, TCG, TDB, TT, UT};
 pub enum PyTimeScale {
     /// Julian Date (identity scale).
     JD = 0,
-    /// Julian Ephemeris Day.
+    /// Legacy name for Julian Date on the TT scale.
     JDE = 1,
     /// Modified Julian Date (JD − 2,400,000.5).
     MJD = 2,
@@ -43,7 +49,7 @@ pub enum PyTimeScale {
     GPS = 8,
     /// Unix/POSIX Time (seconds since 1970-01-01).
     UnixTime = 9,
-    /// Universal Time (Earth rotation, applies ΔT).
+    /// Universal Time (the UT1 Earth-rotation scale).
     UT = 10,
 }
 
@@ -70,10 +76,11 @@ impl PyTimeScale {
     }
 }
 
-/// Convert a JD value from one time scale to another.
+/// Convert a value between the legacy public representations.
 ///
-/// The value is interpreted as a Julian Day number on the source scale,
-/// and returned as a Julian Day number on the target scale.
+/// JD, JDE, MJD, TT, TDB, TAI, TCG, TCB, and UT use day counts. GPS uses
+/// seconds since the GPS epoch, while UnixTime uses POSIX seconds. JDE remains
+/// as a compatibility alias for a TT Julian Date.
 ///
 /// Args:
 ///     jd_value: Julian Day number on the source scale.
@@ -83,36 +90,59 @@ impl PyTimeScale {
 /// Returns:
 ///     float: Julian Day number on the target scale.
 #[pyfunction]
-pub fn convert_timescale(jd_value: f64, from_scale: PyTimeScale, to_scale: PyTimeScale) -> f64 {
-    // Route: source → JD(TT) → target
-    // First convert to JD(TT), then from JD(TT) to target scale
-    let jd_tt = match from_scale {
-        PyTimeScale::JD => Time::<JD>::new(jd_value).value(),
-        PyTimeScale::JDE => Time::<JDE>::new(jd_value).to::<JD>().value(),
-        PyTimeScale::MJD => Time::<MJD>::new(jd_value).to::<JD>().value(),
-        PyTimeScale::TDB => Time::<TDB>::new(jd_value).to::<JD>().value(),
-        PyTimeScale::TT => Time::<TT>::new(jd_value).to::<JD>().value(),
-        PyTimeScale::TAI => Time::<TAI>::new(jd_value).to::<JD>().value(),
-        PyTimeScale::TCG => Time::<TCG>::new(jd_value).to::<JD>().value(),
-        PyTimeScale::TCB => Time::<TCB>::new(jd_value).to::<JD>().value(),
-        PyTimeScale::GPS => Time::<GPS>::new(jd_value).to::<JD>().value(),
-        PyTimeScale::UnixTime => Time::<UnixTime>::new(jd_value).to::<JD>().value(),
-        PyTimeScale::UT => Time::<UT>::new(jd_value).to::<JD>().value(),
-    };
+pub fn convert_timescale(
+    value: f64,
+    from_scale: PyTimeScale,
+    to_scale: PyTimeScale,
+) -> PyResult<f64> {
+    ensure_finite(value)?;
+    let context = TimeContext::new();
+    let tt = to_tt(value, from_scale, &context).map_err(map_conversion_error)?;
+    from_tt(tt, to_scale, &context).map_err(map_conversion_error)
+}
 
-    match to_scale {
-        PyTimeScale::JD => jd_tt,
-        PyTimeScale::JDE => Time::<JD>::new(jd_tt).to::<JDE>().value(),
-        PyTimeScale::MJD => Time::<JD>::new(jd_tt).to::<MJD>().value(),
-        PyTimeScale::TDB => Time::<JD>::new(jd_tt).to::<TDB>().value(),
-        PyTimeScale::TT => Time::<JD>::new(jd_tt).to::<TT>().value(),
-        PyTimeScale::TAI => Time::<JD>::new(jd_tt).to::<TAI>().value(),
-        PyTimeScale::TCG => Time::<JD>::new(jd_tt).to::<TCG>().value(),
-        PyTimeScale::TCB => Time::<JD>::new(jd_tt).to::<TCB>().value(),
-        PyTimeScale::GPS => Time::<JD>::new(jd_tt).to::<GPS>().value(),
-        PyTimeScale::UnixTime => Time::<JD>::new(jd_tt).to::<UnixTime>().value(),
-        PyTimeScale::UT => Time::<JD>::new(jd_tt).to::<UT>().value(),
-    }
+fn to_tt(
+    value: f64,
+    representation: PyTimeScale,
+    context: &TimeContext,
+) -> Result<Time<TT>, tempoch::ConversionError> {
+    let tt = match representation {
+        PyTimeScale::JD | PyTimeScale::JDE | PyTimeScale::TT => {
+            JulianDate::<TT>::new(value).to_j2000s()
+        }
+        PyTimeScale::MJD => ModifiedJulianDate::<TT>::new(value).to_j2000s(),
+        PyTimeScale::TDB => JulianDate::<TDB>::new(value).to::<TT>().to_j2000s(),
+        PyTimeScale::TAI => JulianDate::<TAI>::new(value).to::<TT>().to_j2000s(),
+        PyTimeScale::TCG => JulianDate::<TCG>::new(value).to::<TT>().to_j2000s(),
+        PyTimeScale::TCB => JulianDate::<TCB>::new(value).to::<TT>().to_j2000s(),
+        PyTimeScale::GPS => Time::<TAI, GPS>::new(value).to::<TT>().to_j2000s(),
+        PyTimeScale::UnixTime => Time::<UTC, Unix>::try_new(Seconds::new(value))?
+            .to::<TT>()
+            .to_j2000s(),
+        PyTimeScale::UT => JulianDate::<UT1>::new(value)
+            .to_with::<TT>(context)?
+            .to_j2000s(),
+    };
+    Ok(tt)
+}
+
+fn from_tt(
+    tt: Time<TT>,
+    representation: PyTimeScale,
+    context: &TimeContext,
+) -> Result<f64, tempoch::ConversionError> {
+    let value = match representation {
+        PyTimeScale::JD | PyTimeScale::JDE | PyTimeScale::TT => tt.to::<JD>().value(),
+        PyTimeScale::MJD => tt.to::<MJD>().value(),
+        PyTimeScale::TDB => tt.to::<TDB>().to::<JD>().value(),
+        PyTimeScale::TAI => tt.to::<TAI>().to::<JD>().value(),
+        PyTimeScale::TCG => tt.to::<TCG>().to::<JD>().value(),
+        PyTimeScale::TCB => tt.to::<TCB>().to::<JD>().value(),
+        PyTimeScale::GPS => tt.to::<GPS>().raw().value(),
+        PyTimeScale::UnixTime => tt.try_to::<Unix>()?.try_raw_with(context)?.value(),
+        PyTimeScale::UT => tt.to_with::<UT1>(context)?.to::<JD>().value(),
+    };
+    Ok(value)
 }
 
 /// Get the TAI − UTC leap-second offset for a given Julian Date.
@@ -123,6 +153,12 @@ pub fn convert_timescale(jd_value: f64, from_scale: PyTimeScale, to_scale: PyTim
 /// Returns:
 ///     float: TAI − UTC in seconds.
 #[pyfunction]
-pub fn tai_minus_utc_py(jd: f64) -> f64 {
-    tempoch::tai_minus_utc(jd)
+pub fn tai_minus_utc_py(jd: f64) -> PyResult<f64> {
+    ensure_finite(jd)?;
+    let jd_utc = tempoch::qtty::Day::new(jd);
+    let unix_seconds = (jd_utc - UNIX_EPOCH_JD_DAY).to::<Second>();
+    let utc = Time::<UTC, Unix>::try_new(unix_seconds).map_err(map_conversion_error)?;
+    let actual_tai = utc.to::<TAI>().to_j2000s();
+    let same_label_tai = JulianDate::<TAI>::new(jd).to_j2000s();
+    Ok((actual_tai - same_label_tai).value())
 }
