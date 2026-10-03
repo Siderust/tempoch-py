@@ -1,6 +1,14 @@
 # tempoch-py
 
-Python bindings for [tempoch](https://github.com/Siderust/tempoch) — astronomical time primitives powered by Rust.
+[![Crates.io](https://img.shields.io/crates/v/tempoch.svg)](https://crates.io/crates/tempoch)
+[![Docs.rs](https://docs.rs/tempoch/badge.svg)](https://docs.rs/tempoch)
+[![CI](https://github.com/Siderust/tempoch-py/actions/workflows/ci.yml/badge.svg)](https://github.com/Siderust/tempoch-py/actions/workflows/ci.yml)
+[![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue)](LICENSE)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)
+
+Python bindings for [tempoch](https://github.com/Siderust/tempoch), providing astronomical time primitives backed by Rust through PyO3.
+
+The Crates.io and docs.rs badges above refer to the underlying `tempoch` Rust crate used by these bindings.
 
 ## Features
 
@@ -14,14 +22,24 @@ Python bindings for [tempoch](https://github.com/Siderust/tempoch) — astronomi
 
 ## Installation
 
-```bash
-# Development install
-pip install maturin
-maturin develop
+The bindings are currently built from source. Clone the repository with its Rust submodule, create a Python environment, and install with Maturin:
 
-# Or build a wheel
+```bash
+git clone --recurse-submodules https://github.com/Siderust/tempoch-py.git
+cd tempoch-py
+
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+
+python -m pip install --upgrade pip maturin
+maturin develop --release
+```
+
+To build a wheel instead:
+
+```bash
 maturin build --release
-pip install target/wheels/tempoch-*.whl
+python -m pip install target/wheels/tempoch-*.whl
 ```
 
 ## Quick Start
@@ -156,19 +174,33 @@ overlap = p1.intersection(p2)           # TimePeriod(59005.0, 59010.0)
 | `TimeScale.UnixTime` | Unix/POSIX Time |
 | `TimeScale.UT` | Universal Time (Earth rotation) |
 
+## Relationship with tempoch
+
+`tempoch-py` is a thin Python interface over the [`tempoch`](https://github.com/Siderust/tempoch) Rust crate. Core astronomical time calculations remain implemented in Rust; the Python layer focuses on idiomatic Python types, exceptions, and interoperability.
+
+- Rust crate: [crates.io/crates/tempoch](https://crates.io/crates/tempoch)
+- Rust API documentation: [docs.rs/tempoch](https://docs.rs/tempoch)
+
 ## Development
 
 ```bash
-# Create virtual environment
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
 
-# Install in development mode
-pip install maturin pytest
+python -m pip install --upgrade pip maturin pytest ruff
 maturin develop
 
-# Run tests
+# Python tests
 pytest tests/ -v
+
+# Rust tests
+cargo test --all-targets
+
+# Formatting and linting checks used by CI
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+ruff format --check python tests examples
+ruff check python tests examples
 ```
 
 ## License
