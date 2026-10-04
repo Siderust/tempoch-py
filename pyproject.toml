@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "tempoch"
-version = "0.1.0"
+version = "0.2.0"
 description = "Astronomical time primitives for Python (powered by Rust)"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -30,7 +30,7 @@ keywords = ["astronomy", "time", "julian-date", "ephemeris", "python"]
 
 [project.urls]
 Repository = "https://github.com/Siderust/tempoch-py"
-Documentation = "https://docs.rs/tempoch"
+Documentation = "https://docs.rs/tempoch-py"
 
 [tool.maturin]
 python-source = "python"
