@@ -53,7 +53,11 @@ if [[ "$cargo_version" != "$python_version" ]]; then
 fi
 
 expected_tag="v$cargo_version"
-release_tag="${RELEASE_TAG:-${GITHUB_REF_NAME:-}}"
+release_tag="${RELEASE_TAG:-}"
+
+if [[ -z "$release_tag" && "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+  release_tag="${GITHUB_REF_NAME:-}"
+fi
 
 if [[ -z "$release_tag" ]]; then
   release_tag="$(git describe --tags --exact-match HEAD 2>/dev/null || true)"
