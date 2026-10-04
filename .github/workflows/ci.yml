@@ -189,4 +189,6 @@ jobs:
         run: bash scripts/publish.sh --dry-run
         env:
           RELEASE_TAG: v0.2.0
+      - name: Validate packaged downstream consumer
+        run: bash scripts/check-packaged-downstream.sh
 

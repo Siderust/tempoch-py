@@ -1,5 +1,7 @@
 """Tests for time-scale conversion and module-level API surface."""
 
+from importlib.metadata import version as distribution_version
+
 import pytest
 
 from tempoch import (
@@ -34,9 +36,9 @@ class TestModuleExports:
         ):
             assert hasattr(tempoch, name), f"tempoch.{name} missing"
 
-    def test_version_is_string(self):
+    def test_version_matches_distribution_metadata(self):
         assert isinstance(__version__, str)
-        assert __version__ == "0.1.0"
+        assert __version__ == distribution_version("tempoch")
 
 
 class TestTimeScaleEnum:

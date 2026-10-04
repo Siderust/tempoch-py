@@ -79,7 +79,13 @@ registry_response="$(mktemp)"
 trap 'rm -f "$registry_response"' EXIT
 
 http_code="$(
-  curl --silent --show-error \
+  curl --silent --show-error --location \
+    --retry 3 \
+    --retry-delay 1 \
+    --retry-connrefused \
+    --max-time 30 \
+    --user-agent "tempoch-py-release/$cargo_version (+https://github.com/Siderust/tempoch-py)" \
+    --header "Accept: application/json" \
     --output "$registry_response" \
     --write-out "%{http_code}" \
     "$registry_url"
