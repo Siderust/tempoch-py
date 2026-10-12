@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-12
+
+### Changed
+
+- **Breaking:** upgrade the Rust dependency and downstream PyO3 consumer to `tempoch` 0.10.0.
+- Synchronize the Rust crate and Python distribution versions at 0.4.0.
+
 ## [0.3.0] - 2026-10-11
 
 ### Changed
