@@ -58,7 +58,6 @@ jobs:
             --locked
             --compatibility pypi
             --out dist
-            -i python3.8
             -i python3.9
             -i python3.10
             -i python3.11
@@ -82,7 +81,6 @@ jobs:
           - runner: macos-15-intel
             arch: x86_64
             python_versions: |
-              3.8
               3.9
               3.10
               3.11
@@ -132,7 +130,6 @@ jobs:
       - uses: actions/setup-python@v7.0.0
         with:
           python-version: |
-            3.8
             3.9
             3.10
             3.11

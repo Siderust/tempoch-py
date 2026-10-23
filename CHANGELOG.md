@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-23
+
+### Changed
+
+- **Breaking:** upgrade the Rust dependency and downstream PyO3 consumer to `tempoch` 0.11.1 (Affn 0.12 geometry identity).
+- **Breaking:** align PyO3 with 0.30.1 across the crate and downstream fixture; drop CPython 3.8 (PyO3 0.30 floor is 3.9+).
+- Synchronize the Rust crate and Python distribution versions at 0.5.0.
+
 ## [0.4.0] - 2026-10-12
 
 ### Changed

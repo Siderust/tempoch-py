@@ -4,7 +4,7 @@
 [![Docs.rs](https://docs.rs/tempoch/badge.svg)](https://docs.rs/tempoch)
 [![CI](https://github.com/Siderust/tempoch-py/actions/workflows/ci.yml/badge.svg)](https://github.com/Siderust/tempoch-py/actions/workflows/ci.yml)
 [![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue)](LICENSE)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 
 Python bindings for [tempoch](https://github.com/Siderust/tempoch), providing astronomical time primitives backed by Rust through PyO3.
 
@@ -23,10 +23,14 @@ The Crates.io and docs.rs badges above refer to the underlying `tempoch` Rust cr
 
 ## Installation
 
-The bindings are currently built from source. Clone the repository with its Rust submodule, create a Python environment, and install with Maturin:
+Install a published wheel when available, or build from source with Maturin:
 
 ```bash
-git clone --recurse-submodules https://github.com/Siderust/tempoch-py.git
+python -m pip install tempoch
+```
+
+```bash
+git clone https://github.com/Siderust/tempoch-py.git
 cd tempoch-py
 
 python -m venv .venv
@@ -90,9 +94,9 @@ reuse the canonical datetime boundary while depending on `tempoch` directly:
 
 ```toml
 [dependencies]
-pyo3 = { version = "0.29", features = ["extension-module"] }
-tempoch = "0.7"
-tempoch-py = { git = "https://github.com/Siderust/tempoch-py.git" }
+pyo3 = { version = "0.30", features = ["extension-module"] }
+tempoch = "0.11"
+tempoch-py = "0.5"
 ```
 
 ```rust
@@ -111,9 +115,9 @@ floating-point POSIX timestamp. Context-aware variants are available for users
 that need to supply a specific `tempoch::TimeContext`, and
 `period_to_datetimes` converts both endpoints of a `Period<UTC>`.
 
-The Python `TimeScale` enum retains its historical names. In the 0.7 model,
-`JD`, `MJD`, `UnixTime`, and `GPS` describe formats, while `TT`, `TAI`, `TDB`,
-`TCG`, `TCB`, and `UT` (`UT1`) describe physical scales. `JDE` remains a
+The Python `TimeScale` enum retains its historical names. `JD`, `MJD`,
+`UnixTime`, and `GPS` describe formats, while `TT`, `TAI`, `TDB`, `TCG`,
+`TCB`, and `UT` (`UT1`) describe physical scales. `JDE` remains a
 compatibility alias for a TT Julian Date.
 
 ## API Reference
