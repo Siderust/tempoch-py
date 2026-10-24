@@ -83,7 +83,8 @@ jobs:
 
   python-test:
     name: Python Test (3.${{ matrix.python-minor }})
-    runs-on: ubuntu-latest
+    # setup-python provides Python 3.9 binaries for 24.04, but not 26.04.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -234,6 +235,11 @@ jobs:
           command: sdist
           maturin-version: ${{ env.MATURIN_VERSION }}
           args: --out dist
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Rebuild and test source distribution in isolation
+        run: bash scripts/check-sdist.sh dist/tempoch-*.tar.gz
 
       - uses: actions/upload-artifact@v7.0.1
         with:
