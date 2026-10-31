@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-31
+
+### Fixed
+
+- Upgrade the Rust `tempoch` dependency to 0.11.2 so IERS EOP lookups
+  reject fractional MJDs beyond the last available sample and non-finite
+  epochs, preserving valid interpolation and leap-second-aware UT1 behavior.
+
+### Changed
+
+- Synchronize Rust crate and Python distribution versions at 0.5.1.
+- Pin the downstream PyO3 fixture to Tempoch 0.11.2 and refresh both
+  Cargo lockfiles without changing Python APIs or supported versions.
+
+
 ## [0.5.0] - 2026-10-23
 
 ### Changed

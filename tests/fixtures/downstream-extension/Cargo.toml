@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.30.1", features = ["extension-module"] }
-tempoch = "0.11.1"
-tempoch-py = { version = "0.5", path = "../../.." }
+tempoch = "0.11.2"
+tempoch-py = { version = "0.5.1", path = "../../.." }
 
 [workspace]

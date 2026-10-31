@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "tempoch"
-version = "0.5.0"
+version = "0.5.1"
 description = "Astronomical time primitives for Python (powered by Rust)"
 readme = "README.md"
 requires-python = ">=3.9"
